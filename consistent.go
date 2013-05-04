@@ -5,6 +5,7 @@ import (
     "sync"
     "errors"
     "sort"
+    "fmt"
 )
 
 type uints []uint32
@@ -16,6 +17,7 @@ func (x uints) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 type Consistent struct {
     circle map[uint32]string
     sortedList uints
+    virtualNode int
     sync.RWMutex
 }
 
@@ -34,14 +36,22 @@ func New() *Consistent {
     return &Consistent {
         circle : make(map[uint32]string),
         sortedList : make(uints, 0),
+        virtualNode : 20,
     }
+}
+
+func (c *Consistent) KeyNum(key string, num int) string {
+    return key + ":" + fmt.Sprintf("%d", num)
 }
 
 func (c *Consistent) Add(key string) {
     c.Lock()
     defer c.Unlock()
 
-    c.circle[c.hashKey(key)] = key
+    for n := 0; n < c.virtualNode; n++ {
+        k := c.KeyNum(key, n)
+        c.circle[c.hashKey(k)] = key
+    }
     c.updateList()
 }
 
