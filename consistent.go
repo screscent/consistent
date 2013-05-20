@@ -49,8 +49,7 @@ func (c *Consistent) Add(key string) {
     defer c.Unlock()
 
     for n := 0; n < c.virtualNode; n++ {
-        k := c.KeyNum(key, n)
-        c.circle[c.hashKey(k)] = key
+        c.circle[c.hashKey(c.KeyNum(key, n))] = key
     }
     c.updateList()
 }
@@ -73,6 +72,16 @@ func (c *Consistent) Get(name string) (string, error) {
     key := c.hashKey(name)
     i := c.search(key)
     return c.circle[c.sortedList[i]], nil
+}
+
+func (c *Consistent) Remove(key string) {
+    c.Lock()
+    defer c.Unlock()
+
+    for n := 0; n < c.virtualNode; n++ {
+        delete(c.circle, c.hashKey(c.KeyNum(key, n)))
+    }
+    c.updateList()
 }
 
 func (c *Consistent) updateList() {
