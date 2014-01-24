@@ -24,6 +24,12 @@ func (x entrys) Len() int           { return len(x) }
 func (x entrys) Less(i, j int) bool { return x[i].Idx < x[j].Idx }
 func (x entrys) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 
+var default_Consistent *Consistent = nil
+
+func init() {
+	default_Consistent = New()
+}
+
 type Consistent struct {
 	circle       map[uint16]*entry
 	members      map[string]int
@@ -60,8 +66,16 @@ func (c *Consistent) AddKey(key string) {
 	c.Add(key, nil)
 }
 
+func AddKey(key string) {
+	default_Consistent.Add(key, nil)
+}
+
 func (c *Consistent) Add(key string, data interface{}) {
 	c.AddWithWeight(key, data, 1)
+}
+
+func Add(key string, data interface{}) {
+	default_Consistent.Add(key, data)
 }
 
 func (c *Consistent) AddWithWeight(key string, data interface{}, weight int) {
@@ -80,6 +94,10 @@ func (c *Consistent) AddWithWeight(key string, data interface{}, weight int) {
 	c.members[key] = weight
 }
 
+func AddWithWeight(key string, data interface{}, weight int) {
+	default_Consistent.AddWithWeight(key, data, weight)
+}
+
 func (c *Consistent) Remove(key string) {
 	c.members_lock.Lock()
 	defer c.members_lock.Unlock()
@@ -95,6 +113,10 @@ func (c *Consistent) Remove(key string) {
 	delete(c.members, key)
 }
 
+func (c *Consistent) Remove(key string) {
+	default_Consistent.Remove(key)
+}
+
 func (c *Consistent) GetKey(name string) (string, error) {
 	c.objs_lock.RLock()
 	defer c.objs_lock.RUnlock()
@@ -107,6 +129,10 @@ func (c *Consistent) GetKey(name string) (string, error) {
 	return c.objs[idx].Key, nil
 }
 
+func GetKey(name string) (string, error) {
+	return default_Consistent.GetKey(name)
+}
+
 func (c *Consistent) Get(name string) (string, interface{}, error) {
 	c.objs_lock.RLock()
 	defer c.objs_lock.RUnlock()
@@ -117,6 +143,10 @@ func (c *Consistent) Get(name string) (string, interface{}, error) {
 	idx := hashKey(name)
 
 	return c.objs[idx].Key, c.objs[idx].Data, nil
+}
+
+func Get(name string) (string, interface{}, error) {
+	default_Consistent.Get(name)
 }
 
 func (c *Consistent) Update() {
@@ -155,4 +185,8 @@ func (c *Consistent) Update() {
 	c.objs_lock.Lock()
 	defer c.objs_lock.Unlock()
 	c.objs = objs
+}
+
+func Update() {
+	default_Consistent.Update()
 }
