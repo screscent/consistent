@@ -1,45 +1,48 @@
 package main
 
 import (
-    "github.com/nokivan/consistent"
+    "github.com/screscent/consistent"
 )
 
 func main() {
-    c := consistent.New()
-    c.Add("Server1")
-    c.Add("Server2")
-    c.Add("Server3")
-    c.Add("Server4")
-    c.Add("Server5")
+   c := consistent.New()
+	c.AddKey("Server1")
+	c.AddKey("Server2")
+	c.AddKey("Server3")
+	c.AddKey("Server4")
+	c.AddKey("Server5")
+	c.Update()
 
-    users := []string{ "foo", "bar", "foobar", "i", "enjoy", "golang" }
-    for _, u := range users {
-        ret, err := c.Get(u)
-        if err != nil {
-            println(err.Error())
-        }
-        println(ret)
-    }
+	users := []string{"foo", "bar", "foobar", "i", "enjoy", "golang"}
+	for _, u := range users {
+		ret, err := c.GetKey(u)
+		if err != nil {
+			println(err.Error())
+		}
+		println(ret)
+	}
 
-    println("---")
-    c.Remove("Server5")
-    c.Remove("Server3")
-    for _, u := range users {
-        ret, err := c.Get(u)
-        if err != nil {
-            println(err.Error())
-        }
-        println(ret)
-    }
+	println("---")
+	c.Remove("Server5")
+	c.Remove("Server3")
+	c.Update()
+	for _, u := range users {
+		ret, err := c.GetKey(u)
+		if err != nil {
+			println(err.Error())
+		}
+		println(ret)
+	}
 
-    println("---")
-    c.Add("Server3")
-    c.Add("Server5")
-    for _, u := range users {
-        ret, err := c.Get(u)
-        if err != nil {
-            println(err.Error())
-        }
-        println(ret)
-    }
+	println("---")
+	c.AddKey("Server3")
+	c.AddKey("Server5")
+	c.Update()
+	for _, u := range users {
+		ret, err := c.GetKey(u)
+		if err != nil {
+			println(err.Error())
+		}
+		println(ret)
+	}
 }
