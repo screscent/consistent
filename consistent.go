@@ -113,7 +113,7 @@ func (c *Consistent) Remove(key string) {
 	delete(c.members, key)
 }
 
-func (c *Consistent) Remove(key string) {
+func Remove(key string) {
 	default_Consistent.Remove(key)
 }
 
@@ -146,7 +146,7 @@ func (c *Consistent) Get(name string) (string, interface{}, error) {
 }
 
 func Get(name string) (string, interface{}, error) {
-	default_Consistent.Get(name)
+	return default_Consistent.Get(name)
 }
 
 func (c *Consistent) Update() {
