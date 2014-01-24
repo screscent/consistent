@@ -1,21 +1,20 @@
 package main
 
 import (
-    "github.com/screscent/consistent"
+    . "github.com/screscent/consistent"
 )
 
 func main() {
-   c := consistent.New()
-	c.AddKey("Server1")
-	c.AddKey("Server2")
-	c.AddKey("Server3")
-	c.AddKey("Server4")
-	c.AddKey("Server5")
-	c.Update()
+	AddKey("Server1")
+	AddKey("Server2")
+	AddKey("Server3")
+	AddKey("Server4")
+	AddKey("Server5")
+	Update()
 
 	users := []string{"foo", "bar", "foobar", "i", "enjoy", "golang"}
 	for _, u := range users {
-		ret, err := c.GetKey(u)
+		ret, err := GetKey(u)
 		if err != nil {
 			println(err.Error())
 		}
@@ -23,11 +22,11 @@ func main() {
 	}
 
 	println("---")
-	c.Remove("Server5")
-	c.Remove("Server3")
-	c.Update()
+	Remove("Server5")
+	Remove("Server3")
+	Update()
 	for _, u := range users {
-		ret, err := c.GetKey(u)
+		ret, err := GetKey(u)
 		if err != nil {
 			println(err.Error())
 		}
@@ -35,11 +34,11 @@ func main() {
 	}
 
 	println("---")
-	c.AddKey("Server3")
-	c.AddKey("Server5")
-	c.Update()
+	AddKey("Server3")
+	AddKey("Server5")
+	Update()
 	for _, u := range users {
-		ret, err := c.GetKey(u)
+		ret, err := GetKey(u)
 		if err != nil {
 			println(err.Error())
 		}
