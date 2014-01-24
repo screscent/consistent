@@ -63,11 +63,11 @@ func hashKey(key string) uint16 {
 }
 
 func (c *Consistent) AddKey(key string) {
-	c.Add(key, nil)
+	c.AddWithWeight(key, nil, 1)
 }
 
 func AddKey(key string) {
-	default_Consistent.Add(key, nil)
+	default_Consistent.AddWithWeight(key, nil, 1)
 }
 
 func (c *Consistent) Add(key string, data interface{}) {
@@ -75,7 +75,7 @@ func (c *Consistent) Add(key string, data interface{}) {
 }
 
 func Add(key string, data interface{}) {
-	default_Consistent.Add(key, data)
+	default_Consistent.AddWithWeight(key, data, 1)
 }
 
 func (c *Consistent) AddWithWeight(key string, data interface{}, weight int) {
