@@ -62,28 +62,28 @@ func hashKey(key string) uint16 {
 	return uint16(crc32.ChecksumIEEE([]byte(key)))
 }
 
-func (c *Consistent) AddKey(key string) {
-	c.AddWithWeight(key, nil, 1)
+func (c *Consistent) AddKey(key string) error {
+	return c.AddWithWeight(key, nil, 1)
 }
 
-func AddKey(key string) {
-	default_Consistent.AddWithWeight(key, nil, 1)
+func AddKey(key string) error {
+	return default_Consistent.AddWithWeight(key, nil, 1)
 }
 
-func (c *Consistent) Add(key string, data interface{}) {
-	c.AddWithWeight(key, data, 1)
+func (c *Consistent) Add(key string, data interface{}) error {
+	return c.AddWithWeight(key, data, 1)
 }
 
-func Add(key string, data interface{}) {
-	default_Consistent.AddWithWeight(key, data, 1)
+func Add(key string, data interface{}) error {
+	return default_Consistent.AddWithWeight(key, data, 1)
 }
 
-func (c *Consistent) AddWithWeight(key string, data interface{}, weight int) {
+func (c *Consistent) AddWithWeight(key string, data interface{}, weight int) error {
 	c.members_lock.Lock()
 	defer c.members_lock.Unlock()
 
 	if _, ok := c.members[key]; ok {
-		return
+		return errors.New(key + " is already added")
 	}
 
 	for n := 0; n < c.virtualNode*weight; n++ {
@@ -92,6 +92,8 @@ func (c *Consistent) AddWithWeight(key string, data interface{}, weight int) {
 	}
 
 	c.members[key] = weight
+
+	return nil
 }
 
 func AddWithWeight(key string, data interface{}, weight int) {
