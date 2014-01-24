@@ -1,101 +1,158 @@
+//modify by gonghh
+
 package consistent
 
 import (
-    "errors"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"sort"
 	"sync"
 )
 
-type uints []uint32
+type entry struct {
+	Idx  uint16
+	Key  string
+	Data interface{}
+}
 
-func (x uints) Len() int           { return len(x) }
-func (x uints) Less(i, j int) bool { return x[i] < x[j] }
-func (x uints) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
+const maxObjSize = 0x10000
+
+type entrys []*entry
+
+func (x entrys) Len() int           { return len(x) }
+func (x entrys) Less(i, j int) bool { return x[i].Idx < x[j].Idx }
+func (x entrys) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 
 type Consistent struct {
-	circle      map[uint32]string
-	members     map[string]bool
-	sortedList  uints
+	circle       map[uint16]*entry
+	members      map[string]int
+	members_lock *sync.Mutex
+
+	objs        []*entry
+	objs_lock   *sync.RWMutex
 	virtualNode int
-	sync.RWMutex
 }
 
 var ErrEmptyCircle = errors.New("empty consistent circle")
 
-func (c *Consistent) hashKey(key string) uint32 {
-	if len(key) < 64 {
-		scratch := make([]byte, 64)
-		copy(scratch[:], key)
-		return crc32.ChecksumIEEE(scratch[:len(key)])
-	}
-	return crc32.ChecksumIEEE([]byte(key))
-}
-
 func New() *Consistent {
 	return &Consistent{
-		circle:      make(map[uint32]string),
-		members:     make(map[string]bool),
-		sortedList:  make(uints, 0),
+		circle:       make(map[uint16]*entry),
+		members:      make(map[string]int),
+		members_lock: &sync.Mutex{},
+
+		objs:        nil,
+		objs_lock:   &sync.RWMutex{},
 		virtualNode: 20,
 	}
 }
 
-func (c *Consistent) KeyNum(key string, num int) string {
+func keyNum(key string, num int) string {
 	return key + ":" + fmt.Sprintf("%d", num)
 }
 
-func (c *Consistent) Add(key string) {
-	c.Lock()
-	defer c.Unlock()
+func hashKey(key string) uint16 {
+	return uint16(crc32.ChecksumIEEE([]byte(key)))
+}
+
+func (c *Consistent) AddKey(key string) {
+	c.Add(key, nil)
+}
+
+func (c *Consistent) Add(key string, data interface{}) {
+	c.AddWithWeight(key, data, 1)
+}
+
+func (c *Consistent) AddWithWeight(key string, data interface{}, weight int) {
+	c.members_lock.Lock()
+	defer c.members_lock.Unlock()
+
 	if _, ok := c.members[key]; ok {
 		return
 	}
 
-	for n := 0; n < c.virtualNode; n++ {
-		c.circle[c.hashKey(c.KeyNum(key, n))] = key
+	for n := 0; n < c.virtualNode*weight; n++ {
+		idx := hashKey(keyNum(key, n))
+		c.circle[idx] = &entry{idx, key, data}
 	}
-	c.members[key] = true
-	c.updateList()
-}
 
-func (c *Consistent) search(key uint32) int {
-	i := sort.Search(len(c.sortedList), func(x int) bool { return c.sortedList[x] > key })
-	if i >= len(c.sortedList) {
-		i = 0
-	}
-	return i
-}
-
-func (c *Consistent) Get(name string) (string, error) {
-	c.Lock()
-	defer c.Unlock()
-
-	if len(c.circle) == 0 {
-		return "", ErrEmptyCircle
-	}
-	key := c.hashKey(name)
-	i := c.search(key)
-	return c.circle[c.sortedList[i]], nil
+	c.members[key] = weight
 }
 
 func (c *Consistent) Remove(key string) {
-	c.Lock()
-	defer c.Unlock()
+	c.members_lock.Lock()
+	defer c.members_lock.Unlock()
 
-	for n := 0; n < c.virtualNode; n++ {
-		delete(c.circle, c.hashKey(c.KeyNum(key, n)))
+	weight, ok := c.members[key]
+	if !ok {
+		return
+	}
+
+	for n := 0; n < c.virtualNode*weight; n++ {
+		delete(c.circle, hashKey(keyNum(key, n)))
 	}
 	delete(c.members, key)
-	c.updateList()
 }
 
-func (c *Consistent) updateList() {
-	list := c.sortedList[:0]
-	for k, _ := range c.circle {
-		list = append(list, k)
+func (c *Consistent) GetKey(name string) (string, error) {
+	c.objs_lock.RLock()
+	defer c.objs_lock.RUnlock()
+
+	if c.objs == nil {
+		return "", ErrEmptyCircle
 	}
-	sort.Sort(list)
-	c.sortedList = list
+	idx := hashKey(name)
+
+	return c.objs[idx].Key, nil
+}
+
+func (c *Consistent) Get(name string) (string, interface{}, error) {
+	c.objs_lock.RLock()
+	defer c.objs_lock.RUnlock()
+
+	if c.objs == nil {
+		return "", nil, ErrEmptyCircle
+	}
+	idx := hashKey(name)
+
+	return c.objs[idx].Key, c.objs[idx].Data, nil
+}
+
+func (c *Consistent) Update() {
+	c.members_lock.Lock()
+	defer c.members_lock.Unlock()
+	mb_len := len(c.circle)
+	var objs []*entry = nil
+
+	if mb_len > 0 {
+		list := make([]*entry, 0, mb_len)
+		for _, v := range c.circle {
+			list = append(list, v)
+		}
+
+		sort.Sort(entrys(list))
+
+		objs = make([]*entry, maxObjSize, maxObjSize)
+		begin := 0
+		end := 0
+
+		for _, ey := range list {
+			end = int(ey.Idx)
+			for i := begin; i <= end && i < maxObjSize; i++ {
+				objs[i] = ey
+			}
+			begin = end + 1
+		}
+
+		if begin < maxObjSize {
+			for i := begin; i < maxObjSize; i++ {
+				objs[i] = list[0]
+			}
+		}
+	}
+
+	c.objs_lock.Lock()
+	defer c.objs_lock.Unlock()
+	c.objs = objs
 }
